@@ -32,10 +32,8 @@ jobs:
 
       - name: Run unit/API tests
         run: |
-          python -m pytest -v tests                                                                         
-
-jobs2:
-  test:
+          python -m pytest -v tests                  
+  testsec:
     name: Test REST API source code v2 
     runs-on: ubuntu-latest
 
@@ -54,7 +52,8 @@ jobs2:
 
       - name: Run unit/API tests_security
         run: |
-          python -m pytest -v tests_security    
+          python -m pytest -v tests_security                                                           
+
 
   sast:
     name: Static security reports
