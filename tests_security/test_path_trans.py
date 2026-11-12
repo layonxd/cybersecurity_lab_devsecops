@@ -11,9 +11,7 @@ def login(client, username, password):
     
 def test_path_tranversal(client):
     login(client, "prof_srs", "profpw")
-    response = client.get(
-        "/files",
-        json={"path": "srs-summary.txt"},
-    )
+    response = client.get("/files", query_string={"path": "srs-summary.txt"})
+
     assert response.status_code == 200
     assert api.find_grade(1001, "SRS")["grade"] == 18
