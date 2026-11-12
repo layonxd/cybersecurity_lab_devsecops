@@ -17,7 +17,7 @@ def test_path_tranversal(client):
     assert response.status_code == 200
     assert response.get_data(as_text=True) == "SRS Summary: This is a summary of the SRS course."
 
-def test_path_tranversal(client):
+def test_path_tranversal_malicious(client):
     #login(client, "prof_srs", "profpw")
     response = client.get("/files", query_string={"path": "../baseline_secure_coding_api.py"})
 

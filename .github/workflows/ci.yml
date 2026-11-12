@@ -52,7 +52,7 @@ jobs:
 
       - name: Run unit/API tests_security
         run: |
-          python -m pytest -v tests_security                                                           
+          python -m pytest -s -v tests_security                                                           
 
 
   sast:
