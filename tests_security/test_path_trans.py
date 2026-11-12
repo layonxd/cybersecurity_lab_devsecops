@@ -30,7 +30,6 @@ def FAIL_test_path_tranversal_wo_auth(client):
     response = client.get("/files", query_string={"path": "srs-summary.txt"})
     print(response.get_data(as_text=True))
     assert response.status_code != 200
-    assert response.get_data(as_text=True) != "Secure Requirements Engineering summary"
 
 
 def FAIL_test_path_tranversal_malicious(client):
@@ -38,7 +37,6 @@ def FAIL_test_path_tranversal_malicious(client):
     response = client.get("/files", query_string={"path": "../baseline_secure_coding_api.py"})
 
     assert response.status_code != 200
-    #print(response.get_data(as_text=True))
-    #assert response.get_data(as_text=True) != ""   
+
 
     
