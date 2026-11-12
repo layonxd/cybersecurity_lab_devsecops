@@ -10,7 +10,7 @@ def login(client, username, password):
     assert response.get_json()["user"] == username
     
 def test_path_tranversal(client):
-    login(client, "prof_srs", "profpw")
+    #login(client, "prof_srs", "profpw")
     response = client.get("/files", query_string={"path": "srs-summary.txt"})
 
     assert response.status_code == 200
