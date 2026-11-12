@@ -14,4 +14,4 @@ def test_path_tranversal(client):
     response = client.get("/files", query_string={"path": "srs-summary.txt"})
 
     assert response.status_code == 200
-    assert api.find_grade(1001, "SRS")["grade"] == 18
+    assert response.get_data(as_text=True) == "SRS Summary: This is a summary of the SRS course."
