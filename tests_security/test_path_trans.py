@@ -3,6 +3,13 @@ from urllib import response
 
 import baseline_secure_coding_api as api
 
+#Authenticated users may download teaching materials within the materials
+#directory. Requests must not read files outside that directory.
+#Tests if requires auth 
+#Tests if path traversal is possible
+#
+# 
+
 def login(client, username, password):
     response = client.post(
         "/login",
