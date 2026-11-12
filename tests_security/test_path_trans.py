@@ -7,8 +7,7 @@ import baseline_secure_coding_api as api
 #directory. Requests must not read files outside that directory.
 #Tests if requires auth 
 #Tests if path traversal is possible
-#
-# 
+
 
 def login(client, username, password):
     response = client.post(
@@ -39,7 +38,7 @@ def test_path_tranversal_malicious(client):
     response = client.get("/files", query_string={"path": "../baseline_secure_coding_api.py"})
 
     assert response.status_code == 200
-    print(response.get_data(as_text=True))
+    #print(response.get_data(as_text=True))
     assert response.get_data(as_text=True) != ""   
 
     
