@@ -34,7 +34,7 @@ jobs:
         run: |
           python -m pytest -v tests                                                                         
 
-jobs:
+jobs2:
   test:
     name: Test REST API source code v2 
     runs-on: ubuntu-latest
