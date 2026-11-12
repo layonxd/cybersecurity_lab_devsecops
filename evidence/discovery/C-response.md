@@ -1,0 +1,75 @@
+# CHAT c
+Findings Table
+ID	Title	File / Function / Lines	Attacker Input → Data Flow	Missing Control / Root Cause	Preconditions & Impact	Proposed Test	Assumptions / Confidence
+F1	Missing authentication on student profile	app.py / get_profile / @app.get("/students/<student_id>/profile")	No session check; student_id from URL → STUDENT_PROFILES.get(int(student_id)) → flask.jsonify(profile)	No authentication/authorization check; endpoint public	None; any unauthenticated client reads any student's PII (name, email, program). Violates R1, R2, R3	GET /students/1001/profile without session → expect 401; observed 200 with profile	Demonstrated: no session check in code. Confidence: high
+F2	Missing authentication/authorization on grade retrieval	app.py / get_grades / @app.get("/grades/<student_id>")	No session check; student_id from URL → list comprehension over GRADES → flask.jsonify(rows)	No authn/authz; returns all rows for any ID	None; unauthenticated client reads any student's grades. Violates R1, R2, R3, R4	GET /grades/1001 without session → expect 401; observed 200 with grades	Demonstrated: no session check. Confidence: high
+F3	Missing authentication/authorization on grade update	app.py / update_grade / @app.post("/grades/update")	JSON body → data["student_id"], data["course_id"], data["grade"] → mutate GRADES	No authn/authz; any client can create/overwrite grades	None; unauthenticated grade tampering. Violates R1, R3, R4, R7	POST /grades/update with valid JSON, no session → expect 401; observed 200 and mutation	Demonstrated: no session check. Confidence: high
+F4	Missing authentication on file download + path traversal	app.py / download_file / @app.get("/files")	path query arg → MATERIALS_DIR / raw_path → flask.send_file(target)	No authn; no path normalization/containment check. pathlib join with absolute or .. path escapes MATERIALS_DIR	None; unauthenticated read of arbitrary filesystem files (e.g., ?path=../../etc/passwd, ?path=/etc/passwd). Violates R1, R6	GET /files?path=../app.py and GET /files?path=/etc/passwd without session → expect 401/403/404; observe file contents	Demonstrated: no containment check; Path / absolute discards base. Confidence: high for traversal; high for missing auth
+F5	Missing role/ownership enforcement on grade access (authenticated)	app.py / get_grades, get_profile, update_grade	Session role/student_id not consulted; any authenticated user can target any student_id/course_id	No per-record authorization; login alone treated as sufficient. Violates R2, R3, R4	Requires valid login (any role). Student reads others' grades/profiles; professor updates grades outside assigned courses; professor reads profiles	Login as alice; GET /grades/1002 → expect 403; observed 200. Login as prof_srs; POST /grades/update with course_id=SSD → expect 403; observe success	Inferred from requirements (R2–R4); code confirms no checks. Confidence: high
+F6	Grade-list response does not filter to permitted records	app.py / get_grades	student_id → all matching rows returned regardless of requester role/scope	No authorization filter; R4 requires returning only permitted records and denying when none permitted	Any authenticated user can enumerate grades across students/courses. Violates R4	Login as bob; GET /grades/1001 → expect 403 (no permitted records); observed 200 with Alice's grades	Inferred requirement; code confirms no filter. Confidence: high
+F7	Insufficient input validation on grade update (types, ranges, existence)	app.py / update_grade	JSON student_id, course_id, grade used directly; data["..."] key access; no type/range/existence checks	No validation: accepts negative/zero/non-int student IDs, unknown courses, non-numeric/out-of-range/bool grades, missing keys raise KeyError. Violates R5	None (unauthenticated) or any login; stores invalid grades, corrupts dataset, causes 500s	POST /grades/update with {"student_id": -1, "course_id": "HACK", "grade": true} → expect 400; observe 200/mutation. Post {} → expect 400; observe 500	Demonstrated: no validation. Confidence: high
+F8	Exception handler leaks internal details	app.py / handle_error / @app.errorhandler(Exception)	Any exception (e.g., KeyError, ValueError from int(), FileNotFoundError) → str(exc) and class name returned	Returns implementation exception messages/type to client; no sanitization; also converts client errors to 500. Violates R7	Any client can trigger exceptions (malformed IDs, missing JSON keys, bad paths); leaks paths/stack-derived messages	GET /students/abc/profile → expect 400 without internals; observe 500 with ValueError message. POST /grades/update with {} → observe KeyError text	Demonstrated: handler returns str(exc)/type. Confidence: high
+F9	No authorization/validation produces wrong status codes	app.py / all protected endpoints + handle_error	Unauthenticated protected requests return 200 data or 500, not 401; unauthorized return 200 not 403	No 401/403 distinction; blanket 500 handler masks. Violates R7	Clients cannot distinguish authn/authz failures; information disclosure	Unauthenticated GET /grades/1001 → expect 401; observed 200. GET /students/abc/profile → expect 400; observed 500	Demonstrated. Confidence: high
+F10	Hard-coded credentials and weak secrets (contextual)	app.py / USERS, app.config["SECRET_KEY"]	Static passwords in source; fixed dev secret; debug=True, bind 0.0.0.0	Secrets in code; debug mode may expose interactive debugger; no password hashing	If deployed as-is, credential compromise and debugger RCE exposure. Not a direct R1–R7 violation but relevant	Inspect source for plaintext passwords; run with debug and trigger error to see debugger (only in non-test env)	Demonstrated facts; impact depends on deployment. Confidence: high on facts, medium on exploitability
+F11	Session fixation / no session rotation on login	app.py / login	Pre-set session cookie survives login; flask.session["user"] set without clearing/rotating	No session ID regeneration; Flask signed cookie mitigates but fixation still possible if attacker plants cookie	Requires ability to set victim's cookie; account takeover	Set a known session cookie, then login; check whether cookie value/identity changes	Inferred; Flask default behavior. Confidence: medium
+F12	int() conversion errors on malformed IDs	app.py / get_profile, get_grades	<student_id> non-numeric → int() raises ValueError → 500 via handler	No validation of path parameter; R5 requires positive integers, R7 requires client error	Any client; 500 + leaked exception text (see F8)	GET /grades/abc → expect 400; observe 500 with ValueError	Demonstrated. Confidence: high
+F13	find_grade type-mismatch allows duplicate/inconsistent records	app.py / find_grade, update_grade	JSON student_id type (e.g., string "1001") compared to int stored rows → no match → append duplicate	No type coercion/validation before lookup; R5 requires existing student ID	Authenticated or not; data integrity corruption, duplicate grade rows	POST /grades/update with {"student_id": "1001", "course_id": "SRS", "grade": 20} → expect 400; observe appended duplicate	Demonstrated logic; confidence high
+Supporting Explanations
+Scope and method
+Review is limited to the provided app.py source and the stated application context and requirements R1–R7. "Demonstrated" means the code plainly lacks a check or performs the described operation. "Inferred" means the requirement text (R1–R7) implies a control the code does not implement. No code was executed.
+
+F1 — Unauthenticated student profile disclosure
+get_profile reads student_id from the URL, calls int(), looks up STUDENT_PROFILES, and returns JSON. There is no flask.session check. R1 requires authentication for profile access; R2 restricts students to their own profile; R3 forbids professors from reading profiles. The endpoint enforces none of these. int() also raises ValueError on non-numeric input, routed to the blanket handler (F8/F12).
+
+F2 — Unauthenticated grade disclosure
+get_grades filters GRADES by student_id and returns all matching rows. No session or role check exists. R1 requires authentication; R2 restricts students to their own grades; R3 restricts professors to assigned courses; R4 requires returning only permitted records. The endpoint returns every row for the requested ID.
+
+F3 — Unauthenticated grade mutation
+update_grade parses JSON and mutates GRADES via find_grade/append. No authentication or authorization is performed. R1 requires authentication; R3 limits professors to assigned courses and reserves updates for staff/admin; R7 requires denied/invalid updates to leave data unchanged. Any client can create or overwrite grades, including setting arbitrary values.
+
+F4 — Unauthenticated file read and path traversal
+download_file takes path from query args and computes MATERIALS_DIR / raw_path. In pathlib, joining with an absolute path discards the base, and .. segments are not normalized/contained. Thus ?path=/etc/passwd or ?path=../../app.py escapes MATERIALS_DIR. No authentication check exists either. R1 requires authentication for downloads; R6 requires containment within the materials directory. Both are violated. send_file will serve any readable file the process can access.
+
+F5 — No role/ownership enforcement on protected endpoints
+Even when a session exists, get_profile, get_grades, and update_grade never read flask.session["role"], ["student_id"], or ["courses"]. R2–R4 require per-record authorization: students only their own records; professors only their assigned courses and no profiles; admins broader access. Login alone is treated as sufficient, which R4 explicitly rejects ("Login alone … does not establish permission").
+
+F6 — Unfiltered grade-list response
+R4 states that a grade-list response must return only records the requester may read, and deny the request if none are permitted. get_grades returns all rows for the target student regardless of requester. A student querying another student's ID gets that student's grades; a professor querying a student not in their course gets all of that student's grades.
+
+F7 — Missing input validation on grade update
+R5 requires: positive integer student ID; JSON object with existing student ID; known course (SRS, SSD); numeric grade 0–20 inclusive; booleans rejected; missing fields and malformed input rejected without update. The code uses data["student_id"], data["course_id"], data["grade"] directly (missing keys raise KeyError → 500), performs no isinstance/range checks, does not reject True/False (which are int subclasses in Python), does not verify the student exists, and does not restrict course_id to known courses. It also does not verify the target student has the course. Any accepted update mutates GRADES.
+
+F8 — Information disclosure via exception handler
+handle_error returns str(exc) and exc.__class__.__name__ for every exception with status 500. This exposes internal messages (e.g., KeyError: 'student_id', ValueError: invalid literal for int(), filesystem errors with paths). R7 requires client errors without internal paths, tracebacks, or implementation details, and distinguishes 401/403. The handler also masks client-error conditions as 500 and does not map auth failures to 401/403.
+
+F9 — Incorrect status codes for authn/authz failures
+Because endpoints do not check sessions, unauthenticated protected requests return 200 (data) rather than 401. Because roles/scopes are unchecked, unauthorized requests return 200 rather than 403. R7 mandates 401 for unauthenticated and 403 for authenticated-but-unauthorized. The blanket handler further ensures even malformed requests yield 500 rather than 400.
+
+F10 — Hard-coded credentials, fixed secret, debug mode
+USERS contains plaintext passwords; SECRET_KEY is a fixed literal; the app runs with debug=True on 0.0.0.0. These are demonstrated facts. Impact depends on deployment (the exercise context may be a teaching environment), but if exposed, static credentials and the Werkzeug debugger (if an error occurs and the debugger PIN is bypassed or known) are serious risks. This is contextual rather than a direct R1–R7 violation; R1 implies credential secrecy but does not specify storage.
+
+F11 — Session fixation (inferred)
+login sets session keys without clearing or rotating the session. Flask's default client-side signed cookie makes classic fixation harder (attacker cannot set a valid signed cookie without the secret), but if an attacker can plant a cookie value or if the secret is known/leaked (F10), fixation is possible. This is inferred and depends on Flask configuration; confidence is medium.
+
+F12 — Malformed path parameter handling
+get_profile and get_grades call int(student_id) without validation. Non-numeric input raises ValueError, caught by the blanket handler and returned as 500 with exception text. R5 requires positive integers and R7 requires client errors; the code neither validates nor returns 400.
+
+F13 — Type-mismatch duplicate grade rows
+find_grade compares row["student_id"] == student_id and row["course_id"] == course_id with no type normalization. If JSON supplies "1001" (string) or a different numeric type, the comparison fails and a new row is appended, creating duplicates that later retrieval will return together. R5 requires rejecting non-integer IDs and applying updates only to existing records; the code neither validates nor normalizes.
+
+Cross-cutting notes and uncertainties
+Assumption: STUDENT_PROFILES keys and GRADES rows are integers as seeded; JSON may deliver other types. This underpins F13.
+
+Assumption: MATERIALS_DIR is the only intended download root; R6 explicitly says so.
+
+Assumption: "Existing student identifier" means the ID appears in STUDENT_PROFILES (and arguably USERS with student_id); the code checks neither.
+
+Assumption: "Known course identifier" means SRS or SSD per R5; the code has no course registry beyond GRADES/User.courses.
+
+Uncertainty: Whether flask.send_file follows symlinks or normalizes .. before serving; pathlib join behavior already permits absolute-path escape regardless. Traversal via .. should be tested empirically (in a safe environment) to confirm; confidence remains high based on pathlib semantics.
+
+Uncertainty: Exact Flask/Werkzeug version behavior for send_file path handling and debugger exposure is not specified; findings are based on standard semantics.
+
+Not claimed: No evidence of SQL injection (no database), template injection (no templates rendered with user input), or CSRF (forms use session cookies; CSRF is plausible for state-changing endpoints but not specified in R1–R7; noted as out of scope unless required). Absence of findings in other areas is not proof of safety.
+
+Confidence summary: F1–F4, F7–F9, F12–F13: high (code facts). F5–F6: high (requirement-inferred, code confirms no checks). F10: high on facts, medium on exploitability. F11: medium (configuration-dependent).
