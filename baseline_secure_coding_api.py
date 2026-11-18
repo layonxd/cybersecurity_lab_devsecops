@@ -33,6 +33,15 @@ class User:
     courses: typing.Optional[list[str]] = None
 
 
+def _require_authenticated():
+    if "user" not in flask.session:
+        flask.abort(401)
+
+def _require_roles(*roles):
+    _require_authenticated()
+    if flask.session.get("role") not in roles:
+        flask.abort(403)
+
 USERS = {
     "alice": User(username="alice", password="alicepw", role="student", student_id=1001),
     "bob": User(username="bob", password="bobpw", role="student", student_id=1002),
@@ -167,6 +176,14 @@ def update_grade():
 
 @app.get("/files")
 def download_file():
+
+    # Only authenticated users may download course materials.
+    # Restrict to privileged roles: students should get their own grades
+    # via /grades/<id>, not arbitrary files.
+    _require_roles("professor", "admin")
+
+
+
     raw_path = flask.request.args.get("path", "")
 
     if not raw_path:
