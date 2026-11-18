@@ -133,6 +133,16 @@ def update_grade():
     course_id = data["course_id"]
     grade = data["grade"]
 
+    
+    username = flask.session.get("user")
+    user = USERS.get(username)
+    if user is None:
+        # Session references a user that no longer exists.
+        flask.session.clear()
+        return {"error": "authentication required"}, 401
+    if user.role == "professor" and course_id not in (user.courses or []):
+        return {"error": "forbidden: not assigned to this course"}, 403
+
     row = find_grade(student_id, course_id)
     if row is None:
         GRADES.append({"student_id": student_id, "course_id": course_id, "grade": grade})
