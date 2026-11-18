@@ -29,13 +29,13 @@ def test_FAIL_path_tranversal_wo_auth(client):
     #login(client, "prof_srs", "profpw")
     response = client.get("/files", query_string={"path": "srs-summary.txt"})
     print(response.get_data(as_text=True))
-    assert response.status_code != 200 , "i was able to acces the file without auth"
+    assert response.status_code != 200 
 
 
 def test_FAIL_path_tranversal_malicious(client):
     login(client, "prof_srs", "profpw")
     response = client.get("/files", query_string={"path": "../baseline_secure_coding_api.py"})
-    print(str(response.get_data(as_text=True))[0:10])
+    print((response.get_data(as_text=True))[0:10])
     assert response.status_code != 200 
     
     assert response.get_data(as_text=True) != ""
