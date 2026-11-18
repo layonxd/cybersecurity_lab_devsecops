@@ -38,3 +38,4 @@ def test_FAIL_assigned_professor_can_update_grade_no_upper_bound(client):
         json={"student_id": 1001, "course_id": "SRS", "grade": 21},
     )
     assert response.status_code != 200
+    

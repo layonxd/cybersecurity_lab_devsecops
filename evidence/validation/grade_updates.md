@@ -1,0 +1,3 @@
+tests_security/test_grade_authorization.py::test_FAIL_assigned_professor_can_update_grade_wrong_course FAILED [ 16%]
+tests_security/test_grade_authorization.py::test_assigned_professor_can_update_grade PASSED [ 33%]
+tests_security/test_grade_authorization.py::test_FAIL_assigned_professor_can_update_grade_no_upper_bound FAILED [ 50%]
