@@ -216,20 +216,45 @@ Coverage checklist: auth gate, role gate, legit download (positive), traversal (
 
 
 Does it address the root cause or just the supplied example input?
-
+it does more than what was requested , but the root cause got fixed 
 
 
 Does an authentication check leave object/course authorization missing?
-
+no , both role and authorization get verified 
 
 Are all relevant paths protected, including read and update operations?
-
+yes , they get blocked at the start of the api call 
 
 
 Are authorized users still able to perform their permitted actions?
-
+yes ,they can perform theyr operations 
 
 Are denial responses and state changes correct?
-
+yes 401 for authentication , 403 for authorization
 
 Has it introduced an unrelated change, broad exception handler, or insecure fallback?
+
+yes , it fixed the other test issue , path validation 
+
+
+
+pruned fix 
+
++def _require_authenticated():
++    if "user" not in flask.session:
++        flask.abort(401)
++
++def _require_roles(*roles):
++    _require_authenticated()
++    if flask.session.get("role") not in roles:
++        flask.abort(403)
++
+
+
+@app.get("/files")
+def download_file():
+
+    # Only authenticated users may download course materials.
+    # Restrict to privileged roles: students should get their own grades
+    # via /grades/<id>, not arbitrary files.
+    _require_roles("professor", "admin")
