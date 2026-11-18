@@ -156,7 +156,7 @@ def update_grade():
     if grade < 0 or grade > 20:
         return {"error": "grade must be between 0 and 20"}, 400
     #range check for grade
-    
+
     row = find_grade(student_id, course_id)
     if row is None:
         GRADES.append({"student_id": student_id, "course_id": course_id, "grade": grade})
@@ -168,7 +168,25 @@ def update_grade():
 @app.get("/files")
 def download_file():
     raw_path = flask.request.args.get("path", "")
-    target = MATERIALS_DIR / raw_path
+
+    if not raw_path:
+        return {"error": "missing path parameter"}, 400
+
+        # Canonicalize the candidate and the materials root, then require
+        # containment. This blocks "../" traversal, absolute paths, and
+        # symlink escapes because resolve() collapses all of them.
+    try:
+        target = (MATERIALS_DIR / raw_path).resolve()
+        materials_root = MATERIALS_DIR.resolve()
+    except (OSError, RuntimeError):
+        # Symlink loops, permission errors, etc.
+        return {"error": "invalid path"}, 400
+
+    if not target.is_relative_to(materials_root):
+        return {"error": "path outside materials directory"}, 400
+    if not target.is_file():
+        return {"error": "file not found"}, 404
+
     return flask.send_file(target)
 
 @app.errorhandler(Exception)
