@@ -35,8 +35,8 @@ def test_FAIL_path_tranversal_wo_auth(client):
 def test_FAIL_path_tranversal_malicious(client):
     login(client, "prof_srs", "profpw")
     response = client.get("/files", query_string={"path": "../baseline_secure_coding_api.py"})
-    print((response.get_data(as_text=True))[0:10])
-    assert response.status_code != 200 
+    print(response.get_data(as_text=True))
+    assert response.status_code != 200 , "retrieved file outside of materials directory"
     
     assert response.get_data(as_text=True) != ""
 #tem q printar mais cenas tipo src code e dar update ao validation

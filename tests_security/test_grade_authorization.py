@@ -17,7 +17,7 @@ def test_FAIL_assigned_professor_can_update_grade_wrong_course(client):
         "/grades/update",
         json={"student_id": 1001, "course_id": "SSD", "grade": 18},
     )
-    assert response.status_code != 200
+    assert response.status_code != 200 , "oops prof_srs was able to update a grade for a course he is not assigned to"
 
 
 
@@ -37,5 +37,5 @@ def test_FAIL_assigned_professor_can_update_grade_no_upper_bound(client):
         "/grades/update",
         json={"student_id": 1001, "course_id": "SRS", "grade": 21},
     )
-    assert response.status_code != 200
+    assert response.status_code != 200 , "was able to update grade above upper bound"
     
