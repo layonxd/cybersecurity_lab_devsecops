@@ -1,6 +1,6 @@
 import pytest
 
-import baseline_secure_coding_api
+import cybersecurity_lab_devsecops.secure_coding_testing.baseline_secure_coding_api as baseline_secure_coding_api
 
 
 @pytest.fixture
