@@ -133,7 +133,7 @@ def update_grade():
     course_id = data["course_id"]
     grade = data["grade"]
 
-    
+    #added from the test to prevent profs from updating grades for courses they are not assigned to
     username = flask.session.get("user")
     user = USERS.get(username)
     if user is None:
@@ -142,7 +142,21 @@ def update_grade():
         return {"error": "authentication required"}, 401
     if user.role == "professor" and course_id not in (user.courses or []):
         return {"error": "forbidden: not assigned to this course"}, 403
+    #added from the test to prevent profs from updating grades for courses they are not assigned to~
 
+    #range check for grade
+    if not isinstance(student_id, int) or isinstance(student_id, bool):
+        return {"error": "student_id must be an integer"}, 400
+    if not isinstance(course_id, str) or not course_id:
+        return {"error": "course_id must be a non-empty string"}, 400
+
+    # Validate grade: integer within the closed interval [0, 20].
+    if not isinstance(grade, int) or isinstance(grade, bool):
+        return {"error": "grade must be an integer"}, 400
+    if grade < 0 or grade > 20:
+        return {"error": "grade must be between 0 and 20"}, 400
+    #range check for grade
+    
     row = find_grade(student_id, course_id)
     if row is None:
         GRADES.append({"student_id": student_id, "course_id": course_id, "grade": grade})
