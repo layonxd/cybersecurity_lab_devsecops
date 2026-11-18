@@ -36,3 +36,6 @@ E       assert 200 != 200
 E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
 
 tests_security/test_grade_authorization.py:40: AssertionError
+
+
+
